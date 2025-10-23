@@ -1,0 +1,58 @@
+name: computo-nube
+
+services:
+  web:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./html:/usr/share/nginx/html                   # estáticos (Nomas para pruebas)
+      - ./usuarios:/var/www/usuarios                   # Codigo de php (Usuarios)
+      - ./nginx/conf.d:/etc/nginx/conf.d               # Configuración de Nginx
+    depends_on:
+      - app
+    networks:
+      - computo-nube-net
+
+  app:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile # Dockerfile para PHP-FPM
+    volumes:
+      - ./usuarios:/var/www/usuarios # Applicación PHP
+    depends_on:
+      - db
+    networks:
+      - computo-nube-net
+
+
+  db:
+    image: mariadb:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: examplepassword
+      MYSQL_DATABASE: cnube
+      MYSQL_USER: usuario
+      MYSQL_PASSWORD: usuariopassword
+    volumes:
+      - db_data:/var/lib/mysql # Datos persistentes (base de datos)
+      - ./docker/sql-entrypoints:/docker-entrypoint-initdb.d # Scripts de inicialización
+    networks:
+      - computo-nube-net
+    command:
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+
+networks: # Red personalizada, para que los contenedores se comuniquen entre sí
+  computo-nube-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.0.0/24
+
+volumes:
+  db_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./docker/volumes/db_data
+      o: bind
